@@ -1,13 +1,12 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 
-import '../../../core/providers/core_providers.dart';
+import '../../../core/services/toast_service.dart';
 import '../../../core/utils/extensions.dart';
+import '../../../core/widgets/profile_avatar_picker.dart';
 import '../../auth/provider/auth_provider.dart';
-import '../constants/company_constants.dart';
+import '../model/company_profile.dart';
+import '../provider/company_profile_provider.dart';
 
 class CompanyProfileScreen extends ConsumerStatefulWidget {
   const CompanyProfileScreen({super.key});
@@ -18,85 +17,225 @@ class CompanyProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _CompanyProfileScreenState extends ConsumerState<CompanyProfileScreen> {
-  bool _uploading = false;
+  bool _isEditing = false;
+  bool _saving = false;
+  final _nameController = TextEditingController();
+  final _industryController = TextEditingController();
+  final _websiteController = TextEditingController();
+  final _descriptionController = TextEditingController();
 
-  Future<void> _uploadLogo() async {
-    final permission = ref.read(permissionServiceProvider);
-    final result = await permission.requestMediaForUpload();
-    if (result.isFailure) return;
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _industryController.dispose();
+    _websiteController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
 
-    final picker = ImagePicker();
-    final file = await picker.pickImage(source: ImageSource.gallery);
-    if (file == null) return;
+  void _syncControllers(CompanyProfile profile) {
+    _nameController.text = profile.companyName;
+    _industryController.text = profile.industry ?? '';
+    _websiteController.text = profile.website ?? '';
+    _descriptionController.text = profile.description ?? '';
+  }
 
-    setState(() => _uploading = true);
-    final uploadResult =
-        await ref.read(cloudinaryServiceProvider).uploadImage(File(file.path));
-    setState(() => _uploading = false);
+  Future<void> _save() async {
+    final user = ref.read(authNotifierProvider).value;
+    if (user == null) return;
+
+    setState(() => _saving = true);
+    final result =
+        await ref.read(companyProfileRepositoryProvider).saveProfile(
+              uid: user.uid,
+              companyName: _nameController.text.trim(),
+              industry: _industryController.text.trim(),
+              website: _websiteController.text.trim(),
+              description: _descriptionController.text.trim(),
+            );
+    setState(() => _saving = false);
 
     if (!mounted) return;
-    uploadResult.when(
+    result.when(
       success: (_) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Logo uploaded successfully')),
-        );
+        setState(() => _isEditing = false);
+        ToastService.success(context, 'Company profile updated');
       },
-      failure: (msg, _) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-      },
+      failure: (msg, _) => ToastService.error(context, msg),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(authNotifierProvider).value;
+    final profileAsync = ref.watch(companyProfileProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Company Profile'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => ref.read(authNotifierProvider.notifier).signOut(),
-          ),
-        ],
-      ),
-      body: user == null
-          ? const Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
+    return profileAsync.when(
+      loading: () => const Center(child: Text('Loading profile...')),
+      error: (e, _) => Center(child: Text('Error: $e')),
+      data: (profile) {
+        if (profile == null) {
+          return const Center(child: Text('Loading profile...'));
+        }
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 80, 24, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  CircleAvatar(
-                    radius: 48,
-                    backgroundColor: context.colorScheme.secondaryContainer,
-                    child: Icon(
-                      Icons.business,
-                      size: 48,
-                      color: context.colorScheme.secondary,
+                  Expanded(
+                    child: Text(
+                      'Company Profile',
+                      style: context.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    user.displayName ?? 'Company',
-                    style: context.textTheme.headlineSmall,
-                  ),
-                  Text(user.email),
-                  const SizedBox(height: 32),
-                  ElevatedButton.icon(
-                    onPressed: _uploading ? null : _uploadLogo,
-                    icon: _uploading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.image_outlined),
-                    label: const Text(CompanyConstants.logoUploadLabel),
-                  ),
+                  if (!_isEditing)
+                    FilledButton.icon(
+                      onPressed: () {
+                        _syncControllers(profile);
+                        setState(() => _isEditing = true);
+                      },
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      label: const Text('Edit'),
+                    )
+                  else ...[
+                    TextButton(
+                      onPressed: () => setState(() => _isEditing = false),
+                      child: const Text('Cancel'),
+                    ),
+                    FilledButton(
+                      onPressed: _saving ? null : _save,
+                      child: _saving
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Save'),
+                    ),
+                  ],
                 ],
               ),
+              const SizedBox(height: 20),
+              Center(
+                child: _isEditing
+                    ? ProfileAvatarPicker(
+                        photoUrl: profile.logoUrl,
+                        displayName: profile.companyName,
+                        radius: 56,
+                        onUploaded: (url) async {
+                          await ref
+                              .read(companyProfileRepositoryProvider)
+                              .saveProfile(uid: profile.uid, logoUrl: url);
+                          ref.invalidate(companyProfileProvider);
+                        },
+                      )
+                    : CircleAvatar(
+                        radius: 56,
+                        backgroundColor: context.colorScheme.secondaryContainer,
+                        backgroundImage: profile.logoUrl != null
+                            ? NetworkImage(profile.logoUrl!)
+                            : null,
+                        child: profile.logoUrl == null
+                            ? Icon(
+                                Icons.business,
+                                size: 48,
+                                color: context.colorScheme.secondary,
+                              )
+                            : null,
+                      ),
+              ),
+              const SizedBox(height: 20),
+              _Field(
+                label: 'Company Name',
+                value: profile.companyName,
+                isEditing: _isEditing,
+                controller: _nameController,
+              ),
+              _Field(
+                label: 'Email',
+                value: profile.email,
+                isEditing: false,
+              ),
+              _Field(
+                label: 'Industry',
+                value: profile.industry ?? 'Not specified',
+                isEditing: _isEditing,
+                controller: _industryController,
+              ),
+              _Field(
+                label: 'Website',
+                value: profile.website ?? 'Not specified',
+                isEditing: _isEditing,
+                controller: _websiteController,
+              ),
+              _Field(
+                label: 'About',
+                value: profile.description ?? 'No description yet',
+                isEditing: _isEditing,
+                controller: _descriptionController,
+                multiline: true,
+              ),
+              const SizedBox(height: 24),
+              if (!_isEditing)
+                OutlinedButton.icon(
+                  onPressed: () =>
+                      ref.read(authNotifierProvider.notifier).signOut(),
+                  icon: const Icon(Icons.logout),
+                  label: const Text('Sign Out'),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _Field extends StatelessWidget {
+  const _Field({
+    required this.label,
+    required this.value,
+    required this.isEditing,
+    this.controller,
+    this.multiline = false,
+  });
+
+  final String label;
+  final String value;
+  final bool isEditing;
+  final TextEditingController? controller;
+  final bool multiline;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: context.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w600,
             ),
+          ),
+          const SizedBox(height: 6),
+          isEditing && controller != null
+              ? TextFormField(
+                  controller: controller,
+                  maxLines: multiline ? 4 : 1,
+                  decoration: InputDecoration(
+                    hintText: label,
+                    border: const OutlineInputBorder(),
+                  ),
+                )
+              : Text(value, style: context.textTheme.bodyLarge),
+        ],
+      ),
     );
   }
 }

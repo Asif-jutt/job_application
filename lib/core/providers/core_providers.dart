@@ -4,6 +4,7 @@ import '../network/dio_client.dart';
 import '../security/aes_encryption_service.dart';
 import '../security/secure_storage_service.dart';
 import '../services/ads_service.dart';
+import '../services/app_diagnostics_service.dart';
 import '../services/chat_service.dart';
 import '../services/cloudinary_service.dart';
 import '../services/fcm_service.dart';
@@ -58,7 +59,9 @@ final cloudinaryServiceProvider = Provider<CloudinaryService>(
 
 final adsServiceProvider = Provider<AdsService>((ref) => AdsService());
 
-final fcmServiceProvider = Provider<FcmService>((ref) => FcmService());
+final fcmServiceProvider = Provider<FcmService>((ref) => FcmService(
+      localNotifications: ref.watch(localNotificationProvider),
+    ));
 
 final localNotificationProvider = Provider<LocalNotificationService>(
   (ref) => LocalNotificationService(),
@@ -75,3 +78,7 @@ final workmanagerServiceProvider = Provider<WorkmanagerService>(
 final isolateServiceProvider = Provider<IsolateService>(
   (ref) => IsolateService(),
 );
+
+final appDiagnosticsProvider = Provider<AppDiagnosticsService>((ref) {
+  return AppDiagnosticsService(encryption: ref.watch(aesEncryptionProvider));
+});

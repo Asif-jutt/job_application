@@ -59,6 +59,10 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Rozgar needs camera access to take profile photos, job banners, and resume images.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Rozgar needs photo library access to upload images from your gallery.</string>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

@@ -15,12 +15,15 @@ import '../../features/user/screens/user_job_detail_screen.dart';
 import '../constants/route_constants.dart';
 import '../models/job_model.dart';
 import '../models/user_role.dart';
+import 'router_refresh.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authNotifierProvider);
+  final refresh = ref.watch(routerRefreshProvider);
 
   return GoRouter(
     initialLocation: RouteConstants.splash,
+    refreshListenable: refresh,
     debugLogDiagnostics: true,
     redirect: (context, state) {
       final isLoading = authState.isLoading;
@@ -33,7 +36,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (isLoading) return RouteConstants.splash;
 
       if (user == null) {
-        return isAuthRoute || isSplash ? null : RouteConstants.login;
+        if (isSplash) return RouteConstants.login;
+        return isAuthRoute ? null : RouteConstants.login;
       }
 
       if (isAuthRoute || isSplash) {

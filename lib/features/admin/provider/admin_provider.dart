@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/models/user_role.dart';
@@ -40,4 +41,32 @@ final adminJobsProvider = StreamProvider((ref) {
       .jobs
       .orderBy('postedAt', descending: true)
       .snapshots();
+});
+
+/// Monthly user registration counts for admin analytics chart.
+final adminRegistrationChartProvider =
+    FutureProvider<Map<String, int>>((ref) async {
+  final snapshot = await ref.watch(firestoreServiceProvider).users.get();
+  final counts = <String, int>{};
+
+  for (final doc in snapshot.docs) {
+    final createdAt = doc.data()['createdAt'];
+    DateTime? date;
+    if (createdAt is Timestamp) {
+      date = createdAt.toDate();
+    }
+    if (date == null) continue;
+    final key = '${date.year}-${date.month.toString().padLeft(2, '0')}';
+    counts[key] = (counts[key] ?? 0) + 1;
+  }
+
+  if (counts.isEmpty) {
+    final now = DateTime.now();
+    final key = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+    counts[key] = 0;
+  }
+
+  return Map.fromEntries(
+    counts.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
+  );
 });

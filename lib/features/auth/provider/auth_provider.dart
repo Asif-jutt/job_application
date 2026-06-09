@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/models/user_role.dart';
 import '../../../core/providers/core_providers.dart';
+import '../../../core/utils/app_logger.dart';
 import '../model/app_user.dart';
 import 'auth_repository.dart';
 
@@ -11,24 +14,12 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
     authService: ref.watch(firebaseAuthServiceProvider),
     firestore: ref.watch(firestoreServiceProvider),
     encryption: ref.watch(aesEncryptionProvider),
+    performance: ref.watch(performanceServiceProvider),
   );
 });
 
 final authStateProvider = StreamProvider<User?>((ref) {
   return ref.watch(authRepositoryProvider).authStateChanges;
-});
-
-final currentAppUserProvider = FutureProvider<AppUser?>((ref) async {
-  final authState = ref.watch(authStateProvider);
-  return authState.when(
-    data: (user) async {
-      if (user == null) return null;
-      final result = await ref.read(authRepositoryProvider).getCurrentAppUser();
-      return result.dataOrNull;
-    },
-    loading: () => null,
-    error: (_, _) => null,
-  );
 });
 
 class AuthNotifier extends StateNotifier<AsyncValue<AppUser?>> {
@@ -37,25 +28,70 @@ class AuthNotifier extends StateNotifier<AsyncValue<AppUser?>> {
   }
 
   final AuthRepository _repository;
+  StreamSubscription<User?>? _authSubscription;
+  bool _isAuthenticating = false;
 
-  Future<void> _init() async {
-    final result = await _repository.getCurrentAppUser();
-    state = AsyncValue.data(result.dataOrNull);
+  void _init() {
+    _authSubscription = _repository.authStateChanges.listen(
+      (firebaseUser) async {
+        if (_isAuthenticating) return;
+        if (firebaseUser == null) {
+          state = const AsyncValue.data(null);
+          return;
+        }
+        await _loadAppUser(silent: true);
+      },
+      onError: (Object e, StackTrace st) {
+        AppLogger.error('Auth stream error', e, st);
+        if (!_isAuthenticating) state = const AsyncValue.data(null);
+      },
+    );
+
+    unawaited(_loadAppUser(silent: true));
+  }
+
+  Future<void> _loadAppUser({bool silent = false}) async {
+    if (!silent) state = const AsyncValue.loading();
+    try {
+      final result = await _repository
+          .getCurrentAppUser()
+          .timeout(const Duration(seconds: 15));
+      result.when(
+        success: (user) => state = AsyncValue.data(user),
+        failure: (message, _) {
+          if (message != 'Not authenticated') {
+            AppLogger.warning('Profile load failed: $message');
+          }
+          if (state.value == null) state = const AsyncValue.data(null);
+        },
+      );
+    } on TimeoutException {
+      AppLogger.warning('Auth profile load timed out');
+      if (state.value == null) state = const AsyncValue.data(null);
+    } catch (e, st) {
+      AppLogger.error('Auth profile load failed', e, st);
+      if (state.value == null) state = const AsyncValue.data(null);
+    }
   }
 
   Future<String?> signIn(String email, String password) async {
+    _isAuthenticating = true;
     state = const AsyncValue.loading();
-    final result = await _repository.signIn(email: email, password: password);
-    return result.when(
-      success: (user) {
-        state = AsyncValue.data(user);
-        return null;
-      },
-      failure: (message, _) {
-        state = const AsyncValue.data(null);
-        return message;
-      },
-    );
+    try {
+      final result = await _repository.signIn(email: email, password: password);
+      return result.when(
+        success: (user) {
+          state = AsyncValue.data(user);
+          return null;
+        },
+        failure: (message, _) {
+          state = const AsyncValue.data(null);
+          return message;
+        },
+      );
+    } finally {
+      _isAuthenticating = false;
+    }
   }
 
   Future<String?> register({
@@ -65,29 +101,40 @@ class AuthNotifier extends StateNotifier<AsyncValue<AppUser?>> {
     required UserRole role,
     String? phone,
   }) async {
+    _isAuthenticating = true;
     state = const AsyncValue.loading();
-    final result = await _repository.register(
-      email: email,
-      password: password,
-      displayName: displayName,
-      role: role,
-      phone: phone,
-    );
-    return result.when(
-      success: (user) {
-        state = AsyncValue.data(user);
-        return null;
-      },
-      failure: (message, _) {
-        state = const AsyncValue.data(null);
-        return message;
-      },
-    );
+    try {
+      final result = await _repository.register(
+        email: email,
+        password: password,
+        displayName: displayName,
+        role: role,
+        phone: phone,
+      );
+      return result.when(
+        success: (user) {
+          state = AsyncValue.data(user);
+          return null;
+        },
+        failure: (message, _) {
+          state = const AsyncValue.data(null);
+          return message;
+        },
+      );
+    } finally {
+      _isAuthenticating = false;
+    }
   }
 
   Future<void> signOut() async {
     await _repository.signOut();
     state = const AsyncValue.data(null);
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
   }
 }
 

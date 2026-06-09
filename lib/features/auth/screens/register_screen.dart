@@ -6,6 +6,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/models/user_role.dart';
 import '../../../core/utils/extensions.dart';
 import '../provider/auth_provider.dart';
+import '../utils/auth_navigation.dart';
 import '../widgets/auth_text_field.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -53,6 +54,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error), backgroundColor: context.colorScheme.error),
+      );
+      return;
+    }
+
+    final user = ref.read(authNotifierProvider).value;
+    if (user != null) {
+      navigateToRoleHome(context, user);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Account created successfully!')),
       );
     }
   }

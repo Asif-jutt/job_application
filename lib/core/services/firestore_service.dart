@@ -23,6 +23,16 @@ class FirestoreService {
   CollectionReference<Map<String, dynamic>> messages(String chatId) =>
       chats.doc(chatId).collection(AppConstants.messagesSubcollection);
 
+  CollectionReference<Map<String, dynamic>> jobComments(String jobId) =>
+      jobs.doc(jobId).collection(AppConstants.commentsSubcollection);
+
+  CollectionReference<Map<String, dynamic>> applicationStatus(
+    String applicationId,
+  ) =>
+      applications
+          .doc(applicationId)
+          .collection(AppConstants.statusSubcollection);
+
   DocumentReference<Map<String, dynamic>> userDoc(String uid) =>
       users.doc(uid);
 
@@ -34,4 +44,23 @@ class FirestoreService {
 
   Stream<DocumentSnapshot<Map<String, dynamic>>> watchUser(String uid) =>
       userDoc(uid).snapshots();
+
+  Future<DocumentReference<Map<String, dynamic>>> addJob(
+    Map<String, dynamic> data,
+  ) =>
+      jobs.add(data);
+
+  Future<void> updateJob(String jobId, Map<String, dynamic> data) =>
+      jobs.doc(jobId).update(data);
+
+  Future<DocumentReference<Map<String, dynamic>>> addApplication(
+    Map<String, dynamic> data,
+  ) =>
+      applications.add(data);
+
+  Future<void> updateApplication(
+    String applicationId,
+    Map<String, dynamic> data,
+  ) =>
+      applications.doc(applicationId).update(data);
 }

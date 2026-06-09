@@ -24,11 +24,28 @@ class AdsService {
     AppLogger.info('Mobile Ads SDK initialized with test device whitelist');
   }
 
+  BannerAd createLargeBannerAd({void Function(Ad)? onAdLoaded}) {
+    return _createBanner(
+      size: AdSize.mediumRectangle,
+      onAdLoaded: onAdLoaded,
+    );
+  }
+
   BannerAd createBannerAd({void Function(Ad)? onAdLoaded}) {
+    return _createBanner(
+      size: AdSize.largeBanner,
+      onAdLoaded: onAdLoaded,
+    );
+  }
+
+  BannerAd _createBanner({
+    required AdSize size,
+    void Function(Ad)? onAdLoaded,
+  }) {
     _bannerAd?.dispose();
     _bannerAd = BannerAd(
       adUnitId: AdsConstants.bannerAdUnitId,
-      size: AdSize.banner,
+      size: size,
       request: const AdRequest(),
       listener: BannerAdListener(
         onAdLoaded: (ad) {

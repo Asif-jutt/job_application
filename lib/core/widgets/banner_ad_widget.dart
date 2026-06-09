@@ -14,6 +14,7 @@ class BannerAdWidget extends ConsumerStatefulWidget {
 class _BannerAdWidgetState extends ConsumerState<BannerAdWidget> {
   BannerAd? _bannerAd;
   bool _isLoaded = false;
+  bool _dismissed = false;
 
   @override
   void initState() {
@@ -24,7 +25,9 @@ class _BannerAdWidgetState extends ConsumerState<BannerAdWidget> {
   void _loadAd() {
     final adsService = ref.read(adsServiceProvider);
     _bannerAd = adsService.createBannerAd(
-      onAdLoaded: (_) => setState(() => _isLoaded = true),
+      onAdLoaded: (_) {
+        if (mounted) setState(() => _isLoaded = true);
+      },
     );
   }
 
@@ -36,13 +39,42 @@ class _BannerAdWidgetState extends ConsumerState<BannerAdWidget> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_isLoaded || _bannerAd == null) {
-      return const SizedBox(height: 50);
-    }
-    return SizedBox(
-      width: _bannerAd!.size.width.toDouble(),
-      height: _bannerAd!.size.height.toDouble(),
-      child: AdWidget(ad: _bannerAd!),
+    if (_dismissed) return const SizedBox.shrink();
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      height: _isLoaded && _bannerAd != null ? null : 0,
+      child: _isLoaded && _bannerAd != null
+          ? Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.topRight,
+              children: [
+                Center(
+                  child: SizedBox(
+                    width: _bannerAd!.size.width.toDouble(),
+                    height: _bannerAd!.size.height.toDouble(),
+                    child: AdWidget(ad: _bannerAd!),
+                  ),
+                ),
+                Positioned(
+                  top: -4,
+                  right: 4,
+                  child: Material(
+                    color: Colors.black54,
+                    shape: const CircleBorder(),
+                    child: InkWell(
+                      onTap: () => setState(() => _dismissed = true),
+                      customBorder: const CircleBorder(),
+                      child: const Padding(
+                        padding: EdgeInsets.all(4),
+                        child: Icon(Icons.close, color: Colors.white, size: 16),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : const SizedBox.shrink(),
     );
   }
 }

@@ -16,6 +16,10 @@ class JobModel extends Equatable {
     this.postedAt,
     this.companyId,
     this.tags = const [],
+    this.bannerUrl,
+    this.likeCount = 0,
+    this.likedBy = const [],
+    this.commentCount = 0,
   });
 
   final String id;
@@ -29,9 +33,15 @@ class JobModel extends Equatable {
   final DateTime? postedAt;
   final String? companyId;
   final List<String> tags;
+  final String? bannerUrl;
+  final int likeCount;
+  final List<String> likedBy;
+  final int commentCount;
+
+  bool isLikedBy(String userId) => likedBy.contains(userId);
 
   factory JobModel.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data()!;
+    final data = doc.data() ?? {};
     return JobModel(
       id: doc.id,
       title: data['title'] as String? ?? '',
@@ -44,6 +54,10 @@ class JobModel extends Equatable {
       postedAt: (data['postedAt'] as Timestamp?)?.toDate(),
       companyId: data['companyId'] as String?,
       tags: List<String>.from(data['tags'] as List? ?? []),
+      bannerUrl: data['bannerUrl'] as String?,
+      likeCount: data['likeCount'] as int? ?? 0,
+      likedBy: List<String>.from(data['likedBy'] as List? ?? []),
+      commentCount: data['commentCount'] as int? ?? 0,
     );
   }
 
@@ -71,9 +85,36 @@ class JobModel extends Equatable {
         'postedAt': postedAt != null ? Timestamp.fromDate(postedAt!) : null,
         'companyId': companyId,
         'tags': tags,
+        'bannerUrl': bannerUrl,
+        'likeCount': likeCount,
+        'likedBy': likedBy,
+        'commentCount': commentCount,
       };
+
+  JobModel copyWith({
+    int? likeCount,
+    List<String>? likedBy,
+    int? commentCount,
+  }) =>
+      JobModel(
+        id: id,
+        title: title,
+        company: company,
+        description: description,
+        location: location,
+        source: source,
+        salary: salary,
+        isPremium: isPremium,
+        postedAt: postedAt,
+        companyId: companyId,
+        tags: tags,
+        bannerUrl: bannerUrl,
+        likeCount: likeCount ?? this.likeCount,
+        likedBy: likedBy ?? this.likedBy,
+        commentCount: commentCount ?? this.commentCount,
+      );
 
   @override
   List<Object?> get props =>
-      [id, title, company, description, location, salary, source];
+      [id, title, company, description, location, salary, source, bannerUrl];
 }

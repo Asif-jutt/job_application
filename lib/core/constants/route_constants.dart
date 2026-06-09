@@ -26,4 +26,5 @@ class RouteConstants {
   static const String adminUsers = '/admin/users';
   static const String adminJobs = '/admin/jobs';
   static const String adminAnalytics = '/admin/analytics';
+  static const String adminProfile = '/admin/profile';
 }

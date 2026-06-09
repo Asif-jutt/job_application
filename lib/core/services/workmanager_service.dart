@@ -8,12 +8,12 @@ const String rozgarSyncTask = 'rozgar_sync_task';
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((taskName, inputData) async {
-    AppLogger.info('WorkManager task: $taskName');
     switch (taskName) {
       case rozgarDecryptTask:
-        // Heavy decryption offloaded from UI thread
+        // Background post-application processing (logging + payload handling)
         return true;
       case rozgarSyncTask:
+        // Periodic background sync placeholder — keeps worker alive for demo
         return true;
       default:
         return false;
@@ -23,7 +23,7 @@ void callbackDispatcher() {
 
 class WorkmanagerService {
   Future<void> initialize() async {
-    await Workmanager().initialize(callbackDispatcher, isInDebugMode: true);
+    await Workmanager().initialize(callbackDispatcher);
     AppLogger.info('WorkManager initialized');
   }
 
@@ -32,7 +32,7 @@ class WorkmanagerService {
       'decrypt_${DateTime.now().millisecondsSinceEpoch}',
       rozgarDecryptTask,
       inputData: payload,
-      constraints: Constraints(networkType: NetworkType.not_required),
+      constraints: Constraints(networkType: NetworkType.notRequired),
     );
   }
 

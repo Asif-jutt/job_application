@@ -2,7 +2,6 @@ import '../constants/api_constants.dart';
 import '../constants/app_constants.dart';
 import '../models/job_model.dart';
 import '../network/dio_client.dart';
-import '../network/network_exceptions.dart';
 import '../utils/app_logger.dart';
 import '../utils/result.dart';
 import 'firestore_service.dart';
@@ -24,31 +23,39 @@ class JobRepository {
 
   Future<Result<List<JobModel>>> fetchHybridJobs() async {
     return _performance.trace('fetch_hybrid_jobs', () async {
+      var firestoreJobs = <JobModel>[];
+      var externalJobs = <JobModel>[];
+
       try {
-        final results = await Future.wait([
-          _fetchFirestoreJobs(),
-          _fetchExternalJobs(),
-        ]);
-
-        final firestoreJobs = results[0];
-        final externalJobs = results[1];
-
-        final combined = [...firestoreJobs, ...externalJobs];
-        combined.sort((a, b) {
-          if (a.isPremium != b.isPremium) return a.isPremium ? -1 : 1;
-          final aDate = a.postedAt ?? DateTime(1970);
-          final bDate = b.postedAt ?? DateTime(1970);
-          return bDate.compareTo(aDate);
-        });
-
-        AppLogger.info(
-          'Fetched ${firestoreJobs.length} premium + ${externalJobs.length} external jobs',
-        );
-        return Success(combined);
+        firestoreJobs = await _fetchFirestoreJobs();
       } catch (e, st) {
-        AppLogger.severe('Hybrid job fetch failed', e, st);
-        return Failure('Failed to load jobs', e);
+        AppLogger.severe('Firestore jobs fetch failed', e, st);
       }
+
+      try {
+        externalJobs = await _fetchExternalJobs();
+      } catch (e) {
+        AppLogger.warning('External jobs fetch failed', e);
+      }
+
+      if (firestoreJobs.isEmpty && externalJobs.isEmpty) {
+        return const Failure(
+          'Unable to load jobs. Check your connection and try again.',
+        );
+      }
+
+      final combined = [...firestoreJobs, ...externalJobs];
+      combined.sort((a, b) {
+        if (a.isPremium != b.isPremium) return a.isPremium ? -1 : 1;
+        final aDate = a.postedAt ?? DateTime(1970);
+        final bDate = b.postedAt ?? DateTime(1970);
+        return bDate.compareTo(aDate);
+      });
+
+      AppLogger.info(
+        'Fetched ${firestoreJobs.length} premium + ${externalJobs.length} external jobs',
+      );
+      return Success(combined);
     });
   }
 
@@ -76,7 +83,7 @@ class JobRepository {
           .toList();
     } catch (e) {
       AppLogger.warning('External jobs fetch failed', e);
-      throw mapDioException(e);
+      return [];
     }
   }
 

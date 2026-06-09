@@ -4,8 +4,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/route_constants.dart';
+import '../../../core/services/toast_service.dart';
 import '../../../core/utils/extensions.dart';
 import '../provider/auth_provider.dart';
+import '../utils/auth_navigation.dart';
 import '../widgets/auth_text_field.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -21,6 +23,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  String? _authError;
+  bool _emailError = false;
+  bool _passwordError = false;
   late AnimationController _animController;
   late Animation<double> _fadeAnimation;
 
@@ -46,7 +51,30 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     super.dispose();
   }
 
+  void _clearAuthError() {
+    if (_authError != null) {
+      setState(() {
+        _authError = null;
+        _emailError = false;
+        _passwordError = false;
+      });
+    }
+  }
+
+  void _applyAuthError(String error) {
+    final lower = error.toLowerCase();
+    setState(() {
+      _authError = error;
+      _emailError = lower.contains('email') ||
+          lower.contains('account') ||
+          lower.contains('register');
+      _passwordError = lower.contains('password') || lower.contains('incorrect');
+    });
+    ToastService.error(context, error);
+  }
+
   Future<void> _handleLogin() async {
+    _clearAuthError();
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
 
@@ -59,8 +87,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     setState(() => _isLoading = false);
 
     if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error), backgroundColor: context.colorScheme.error),
+      _applyAuthError(error);
+      return;
+    }
+
+    final user = ref.read(authNotifierProvider).value;
+    if (user != null) {
+      navigateToRoleHome(context, user);
+      ToastService.success(
+        context,
+        'Welcome back, ${user.displayName ?? user.email}!',
       );
     }
   }
@@ -104,18 +140,62 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                     ),
                   ),
                   const SizedBox(height: 48),
+                  if (_authError != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: context.colorScheme.errorContainer,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: context.colorScheme.error.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            color: context.colorScheme.error,
+                            size: 22,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _authError!,
+                              style: TextStyle(
+                                color: context.colorScheme.onErrorContainer,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   AuthTextField(
                     controller: _emailController,
                     label: 'Email',
                     hint: 'you@example.com',
                     keyboardType: TextInputType.emailAddress,
                     prefixIcon: Icons.email_outlined,
+                    onChanged: (_) => _clearAuthError(),
                     validator: (v) {
                       if (v == null || v.isEmpty) return 'Email is required';
                       if (!v.isValidEmail) return 'Enter a valid email';
                       return null;
                     },
                   ),
+                  if (_emailError) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      'Check the email address you entered.',
+                      style: TextStyle(
+                        color: context.colorScheme.error,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   AuthTextField(
                     controller: _passwordController,
@@ -123,13 +203,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                     hint: '••••••••',
                     obscureText: true,
                     prefixIcon: Icons.lock_outline,
+                    onChanged: (_) => _clearAuthError(),
                     validator: (v) {
-                      if (v == null || v.length < 6) {
+                      if (v == null || v.isEmpty) {
+                        return 'Password is required';
+                      }
+                      if (v.length < 6) {
                         return 'Password must be at least 6 characters';
                       }
                       return null;
                     },
                   ),
+                  if (_passwordError) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      'The password does not match this account.',
+                      style: TextStyle(
+                        color: context.colorScheme.error,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 32),
                   ElevatedButton(
                     onPressed: _isLoading ? null : _handleLogin,

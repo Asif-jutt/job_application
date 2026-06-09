@@ -41,12 +41,33 @@ class ChatService {
         .toList();
   }
 
+  Future<String> ensureChat({
+    required String userId,
+    required String otherUserId,
+    String? title,
+  }) async {
+    final chatId = generateChatId(userId, otherUserId);
+    await _firestore.chats.doc(chatId).set({
+      'participants': [userId, otherUserId],
+      'title': title ?? 'Conversation',
+      'lastMessage': '',
+      'lastMessageAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    return chatId;
+  }
+
   Future<void> sendMessage({
     required String chatId,
     required String senderId,
     required String text,
     required List<String> participantIds,
   }) async {
+    await _firestore.chats.doc(chatId).set({
+      'participants': participantIds,
+      'lastMessage': text,
+      'lastMessageAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
     final messageRef = _firestore.messages(chatId).doc();
     final message = ChatMessage(
       id: messageRef.id,
@@ -58,13 +79,6 @@ class ChatService {
     );
 
     await messageRef.set(message.toFirestore());
-
-    await _firestore.chats.doc(chatId).set({
-      'lastMessage': text,
-      'lastMessageAt': FieldValue.serverTimestamp(),
-      'participants': participantIds,
-    }, SetOptions(merge: true));
-
     AppLogger.info('Message sent to chat $chatId');
   }
 
