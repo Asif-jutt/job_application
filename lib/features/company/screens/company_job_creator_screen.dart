@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/constants/l10n/locale_provider.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../core/utils/extensions.dart';
 import '../../../core/widgets/media_permission_helper.dart';
@@ -171,9 +172,9 @@ class _CompanyJobCreatorScreenState
   Widget build(BuildContext context) {
     final creator = ref.watch(jobCreatorProvider);
     final notifier = ref.read(jobCreatorProvider.notifier);
+    final s = ref.watch(stringsProvider);
 
     return RozgarShellBody(
-      padding: const EdgeInsets.fromLTRB(0, 88, 0, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -183,14 +184,17 @@ class _CompanyJobCreatorScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  CompanyConstants.postJobTitle,
+                  s.postAJob,
                   style: context.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Step ${creator.currentStep + 1} of 3 · ${_stepSubtitle(creator.currentStep)}',
+                  s.stepProgress(
+                    creator.currentStep + 1,
+                    _stepSubtitle(creator.currentStep, s),
+                  ),
                   style: context.textTheme.bodySmall?.copyWith(
                     color: context.colorScheme.onSurfaceVariant,
                   ),
@@ -198,7 +202,7 @@ class _CompanyJobCreatorScreenState
               ],
             ),
           ),
-          _StepIndicator(current: creator.currentStep),
+          _StepIndicator(current: creator.currentStep, strings: s),
           Expanded(
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 350),
@@ -233,6 +237,7 @@ class _CompanyJobCreatorScreenState
               onBack: notifier.previousStep,
               onNext: _handleNext,
               isLastStep: creator.currentStep == 2,
+              strings: s,
             ),
           ),
         ],
@@ -240,20 +245,21 @@ class _CompanyJobCreatorScreenState
     );
   }
 
-  String _stepSubtitle(int step) => switch (step) {
-        0 => 'Job details',
-        1 => 'Compensation & tags',
-        _ => 'Banner upload',
+  String _stepSubtitle(int step, AppStrings s) => switch (step) {
+        0 => s.stepDetails,
+        1 => s.stepCompensation,
+        _ => s.stepBanner,
       };
 }
 
 class _StepIndicator extends StatelessWidget {
-  const _StepIndicator({required this.current});
+  const _StepIndicator({required this.current, required this.strings});
   final int current;
+  final AppStrings strings;
 
   @override
   Widget build(BuildContext context) {
-    const labels = ['Details', 'Pay', 'Banner'];
+    final labels = [strings.stepDetailsShort, strings.stepPayShort, strings.stepBannerShort];
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
       child: Row(
@@ -498,6 +504,7 @@ class _NavigationBar extends StatelessWidget {
     required this.onBack,
     required this.onNext,
     required this.isLastStep,
+    required this.strings,
   });
 
   final int currentStep;
@@ -505,6 +512,7 @@ class _NavigationBar extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback onNext;
   final bool isLastStep;
+  final AppStrings strings;
 
   @override
   Widget build(BuildContext context) {
@@ -513,7 +521,7 @@ class _NavigationBar extends StatelessWidget {
       child: Row(
         children: [
           if (currentStep > 0)
-            OutlinedButton(onPressed: onBack, child: const Text('Back')),
+            OutlinedButton(onPressed: onBack, child: Text(strings.back)),
           const Spacer(),
           ElevatedButton(
             onPressed: isPosting ? null : onNext,
@@ -526,7 +534,7 @@ class _NavigationBar extends StatelessWidget {
                       color: Colors.white,
                     ),
                   )
-                : Text(isLastStep ? 'Publish Job' : 'Continue'),
+                : Text(isLastStep ? strings.publishJob : strings.continueBtn),
           ),
         ],
       ),

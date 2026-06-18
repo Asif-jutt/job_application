@@ -17,6 +17,12 @@ class FirestoreService {
   CollectionReference<Map<String, dynamic>> get chats =>
       _firestore.collection(AppConstants.chatsCollection);
 
+  /// Query chats where [uid] is a participant (required by Firestore security rules).
+  Query<Map<String, dynamic>> chatsForUser(String uid) => chats.where(
+        'participants',
+        arrayContains: uid,
+      );
+
   CollectionReference<Map<String, dynamic>> get applications =>
       _firestore.collection(AppConstants.applicationsCollection);
 
@@ -41,6 +47,19 @@ class FirestoreService {
 
   Future<DocumentSnapshot<Map<String, dynamic>>> getUser(String uid) =>
       userDoc(uid).get();
+
+  DocumentReference<Map<String, dynamic>> phoneIndexDoc(String phoneKey) =>
+      _firestore
+          .collection(AppConstants.phoneIndexCollection)
+          .doc(phoneKey);
+
+  Future<DocumentSnapshot<Map<String, dynamic>>> getPhoneIndex(
+    String phoneKey,
+  ) =>
+      phoneIndexDoc(phoneKey).get();
+
+  Future<void> setPhoneIndex(String phoneKey, Map<String, dynamic> data) =>
+      phoneIndexDoc(phoneKey).set(data);
 
   Stream<DocumentSnapshot<Map<String, dynamic>>> watchUser(String uid) =>
       userDoc(uid).snapshots();

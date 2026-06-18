@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../constants/l10n/locale_provider.dart';
 import '../utils/extensions.dart';
 
 /// Professional retry/error state for async screens.
-class AsyncErrorView extends StatelessWidget {
+class AsyncErrorView extends ConsumerWidget {
   const AsyncErrorView({
     super.key,
     required this.message,
@@ -16,7 +18,8 @@ class AsyncErrorView extends StatelessWidget {
   final IconData icon;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(stringsProvider);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -35,7 +38,7 @@ class AsyncErrorView extends StatelessWidget {
               FilledButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh),
-                label: const Text('Try Again'),
+                label: Text(s.tryAgain),
               ),
             ],
           ],

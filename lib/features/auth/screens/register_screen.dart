@@ -3,8 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/constants/l10n/app_strings.dart';
+import '../../../core/constants/l10n/locale_provider.dart';
 import '../../../core/models/user_role.dart';
 import '../../../core/utils/extensions.dart';
+import '../../../core/widgets/language_selector.dart';
 import '../provider/auth_provider.dart';
 import '../utils/auth_navigation.dart';
 import '../widgets/auth_text_field.dart';
@@ -21,7 +24,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _phoneController = TextEditingController();
+  final _phoneController = TextEditingController(text: '+92');
   UserRole _selectedRole = UserRole.user;
   bool _isLoading = false;
 
@@ -33,6 +36,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     _phoneController.dispose();
     super.dispose();
   }
+
+  String _roleLabel(UserRole role, AppStrings s) => switch (role) {
+        UserRole.user => s.roleJobSeeker,
+        UserRole.company => s.roleRecruiter,
+        UserRole.admin => s.roleAdmin,
+      };
 
   Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
@@ -50,10 +59,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     if (!mounted) return;
     setState(() => _isLoading = false);
+    final s = ref.read(stringsProvider);
 
     if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error), backgroundColor: context.colorScheme.error),
+        SnackBar(
+          content: Text(s.translateAuthError(error)),
+          backgroundColor: context.colorScheme.error,
+        ),
       );
       return;
     }
@@ -62,15 +75,20 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     if (user != null) {
       navigateToRoleHome(context, user);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Account created successfully!')),
+        SnackBar(content: Text(s.accountCreated)),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(stringsProvider);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Create Account')),
+      appBar: AppBar(
+        title: Text(s.createAccount),
+        actions: const [LanguageSelectorButton()],
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -80,14 +98,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Join ${AppConstants.appName}',
+                  s.joinApp(AppConstants.appName),
                   style: context.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Select your role to get started',
+                  s.selectRole,
                   style: context.textTheme.bodyMedium?.copyWith(
                     color: Colors.grey.shade600,
                   ),
@@ -100,52 +118,54 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     segments: UserRole.values
                         .map((r) => ButtonSegment(
                               value: r,
-                              label: Text(r.label),
+                              label: Text(_roleLabel(r, s)),
                               icon: Icon(_roleIcon(r)),
                             ))
                         .toList(),
                     selected: {_selectedRole},
-                    onSelectionChanged: (s) =>
-                        setState(() => _selectedRole = s.first),
+                    onSelectionChanged: (sel) =>
+                        setState(() => _selectedRole = sel.first),
                   ),
                 ),
                 const SizedBox(height: 24),
                 AuthTextField(
                   controller: _nameController,
-                  label: 'Full Name',
+                  label: s.fullName,
                   prefixIcon: Icons.person_outline,
                   validator: (v) =>
-                      v == null || v.isEmpty ? 'Name is required' : null,
+                      v == null || v.isEmpty ? s.nameRequired : null,
                 ),
                 const SizedBox(height: 16),
                 AuthTextField(
                   controller: _emailController,
-                  label: 'Email',
+                  label: s.email,
                   keyboardType: TextInputType.emailAddress,
                   prefixIcon: Icons.email_outlined,
                   validator: (v) {
-                    if (v == null || v.isEmpty) return 'Email is required';
-                    if (!v.isValidEmail) return 'Enter a valid email';
+                    if (v == null || v.isEmpty) return s.emailRequired;
+                    if (!v.isValidEmail) return s.validEmail;
                     return null;
                   },
                 ),
                 const SizedBox(height: 16),
                 AuthTextField(
                   controller: _phoneController,
-                  label: 'Phone (encrypted)',
+                  label: s.phoneEncrypted,
                   keyboardType: TextInputType.phone,
                   prefixIcon: Icons.phone_outlined,
+                  validator: (v) {
+                    if (v == null || v.trim().length < 10) return s.validPhone;
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
                 AuthTextField(
                   controller: _passwordController,
-                  label: 'Password',
+                  label: s.password,
                   obscureText: true,
                   prefixIcon: Icons.lock_outline,
                   validator: (v) {
-                    if (v == null || v.length < 6) {
-                      return 'Password must be at least 6 characters';
-                    }
+                    if (v == null || v.length < 6) return s.passwordMin6;
                     return null;
                   },
                 ),
@@ -161,12 +181,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             color: Colors.white,
                           ),
                         )
-                      : const Text('Create Account'),
+                      : Text(s.createAccount),
                 ),
                 const SizedBox(height: 16),
                 TextButton(
                   onPressed: () => context.pop(),
-                  child: const Text('Already have an account? Sign In'),
+                  child: Text(s.haveAccountSignIn),
                 ),
               ],
             ),

@@ -28,7 +28,8 @@ class GlassmorphicAppBar extends StatelessWidget implements PreferredSizeWidget 
   final bool pinned;
 
   @override
-  Size get preferredSize => const Size.fromHeight(64);
+  Size get preferredSize =>
+      Size.fromHeight(displayName != null ? 88 : 72);
 
   @override
   Widget build(BuildContext context) {

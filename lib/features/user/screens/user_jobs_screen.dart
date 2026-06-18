@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/route_constants.dart';
+import '../../../core/constants/l10n/locale_provider.dart';
 import '../../../core/widgets/async_error_view.dart';
 import '../../../core/widgets/rozgar_shell_body.dart';
 import '../../../core/widgets/shimmer_skeleton.dart';
@@ -15,17 +16,18 @@ class UserJobsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final jobsAsync = ref.watch(userJobsProvider);
+    final s = ref.watch(stringsProvider);
 
     return RozgarShellBody(
       child: jobsAsync.when(
         loading: () => const JobListSkeleton(),
         error: (e, _) => AsyncErrorView(
-          message: 'Unable to load jobs. Check your connection.',
+          message: s.unableLoadJobs,
           onRetry: () => ref.invalidate(userJobsProvider),
         ),
         data: (jobs) {
           if (jobs.isEmpty) {
-            return const Center(child: Text('No jobs available'));
+            return Center(child: Text(s.noJobsAvailable));
           }
           return RefreshIndicator(
             onRefresh: () async => ref.invalidate(userJobsProvider),

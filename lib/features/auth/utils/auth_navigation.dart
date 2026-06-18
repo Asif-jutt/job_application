@@ -13,3 +13,12 @@ void navigateToRoleHome(BuildContext context, AppUser user) {
   };
   context.go(route);
 }
+
+/// Routes user to role picker or home after sign-in.
+void navigateAfterAuth(BuildContext context, AppUser user) {
+  if (user.needsRoleSelection) {
+    context.go(RouteConstants.googleRole);
+    return;
+  }
+  navigateToRoleHome(context, user);
+}

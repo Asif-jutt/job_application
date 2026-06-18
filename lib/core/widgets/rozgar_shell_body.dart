@@ -5,14 +5,21 @@ class RozgarShellBody extends StatelessWidget {
   const RozgarShellBody({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.fromLTRB(0, 80, 0, 0),
+    this.padding,
   });
 
   final Widget child;
-  final EdgeInsets padding;
+  final EdgeInsets? padding;
+
+  /// Safe top offset: status bar + glass app bar (title + optional subtitle).
+  static double topInset(BuildContext context, {bool hasSubtitle = true}) {
+    final barHeight = hasSubtitle ? 88.0 : 72.0;
+    return MediaQuery.paddingOf(context).top + barHeight + 8;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(padding: padding, child: child);
+    final resolved = padding ?? EdgeInsets.fromLTRB(0, topInset(context), 0, 0);
+    return Padding(padding: resolved, child: child);
   }
 }

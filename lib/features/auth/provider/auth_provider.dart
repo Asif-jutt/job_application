@@ -12,6 +12,7 @@ import 'auth_repository.dart';
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(
     authService: ref.watch(firebaseAuthServiceProvider),
+    authenticationService: ref.watch(authenticationServiceProvider),
     firestore: ref.watch(firestoreServiceProvider),
     encryption: ref.watch(aesEncryptionProvider),
     performance: ref.watch(performanceServiceProvider),
@@ -39,6 +40,7 @@ class AuthNotifier extends StateNotifier<AsyncValue<AppUser?>> {
           state = const AsyncValue.data(null);
           return;
         }
+        if (state.value?.uid == firebaseUser.uid) return;
         await _loadAppUser(silent: true);
       },
       onError: (Object e, StackTrace st) {
@@ -129,6 +131,95 @@ class AuthNotifier extends StateNotifier<AsyncValue<AppUser?>> {
   Future<void> signOut() async {
     await _repository.signOut();
     state = const AsyncValue.data(null);
+  }
+
+  Future<String?> signInWithGoogle() async {
+    _isAuthenticating = true;
+    state = const AsyncValue.loading();
+    try {
+      final result = await _repository.signInWithGoogle();
+      return result.when(
+        success: (user) {
+          state = AsyncValue.data(user);
+          return null;
+        },
+        failure: (message, _) {
+          state = const AsyncValue.data(null);
+          return message;
+        },
+      );
+    } finally {
+      // Keep listener paused until Riverpod/router consume the new user.
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      _isAuthenticating = false;
+    }
+  }
+
+  Future<String?> signInWithPhone(
+    String phoneNumber,
+    String password,
+  ) async {
+    _isAuthenticating = true;
+    state = const AsyncValue.loading();
+    try {
+      final result = await _repository.signInWithPhone(
+        phoneNumber: phoneNumber,
+        password: password,
+      );
+      return result.when(
+        success: (user) {
+          state = AsyncValue.data(user);
+          return null;
+        },
+        failure: (message, _) {
+          state = const AsyncValue.data(null);
+          return message;
+        },
+      );
+    } finally {
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      _isAuthenticating = false;
+    }
+  }
+
+  Future<String?> completeGoogleRole(UserRole role) async {
+    state = const AsyncValue.loading();
+    final result = await _repository.completeGoogleRoleSelection(role);
+    return result.when(
+      success: (user) {
+        state = AsyncValue.data(user);
+        return null;
+      },
+      failure: (message, _) {
+        state = AsyncValue.data(state.value);
+        return message;
+      },
+    );
+  }
+
+  Future<String?> sendPhoneOtp(String phoneNumber) async {
+    final result = await _repository.sendPhoneOtp(phoneNumber);
+    return result.when(
+      success: (_) => null,
+      failure: (message, _) => message,
+    );
+  }
+
+  Future<String?> verifyPhoneOtp({
+    required String smsCode,
+    required String phoneNumber,
+  }) async {
+    final result = await _repository.verifyPhoneOtp(
+      smsCode: smsCode,
+      phoneNumber: phoneNumber,
+    );
+    return result.when(
+      success: (user) {
+        state = AsyncValue.data(user);
+        return null;
+      },
+      failure: (message, _) => message,
+    );
   }
 
   @override

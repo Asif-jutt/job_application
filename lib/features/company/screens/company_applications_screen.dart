@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/constants/route_constants.dart';
+import '../../../core/providers/core_providers.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../core/widgets/rozgar_shell_body.dart';
 import '../../../core/widgets/shimmer_skeleton.dart';
+import '../../auth/provider/auth_provider.dart';
 import '../../user/model/job_application.dart';
 import '../../user/provider/application_provider.dart';
 import '../../user/widgets/application_status_tracker.dart';
@@ -70,6 +74,12 @@ class CompanyApplicationsScreen extends ConsumerWidget {
                                 applicationId: app.id,
                                 current: app.status,
                               ),
+                              const SizedBox(height: 8),
+                              OutlinedButton.icon(
+                                onPressed: () => _messageApplicant(context, ref, app),
+                                icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                                label: const Text('Message Applicant'),
+                              ),
                             ],
                           ),
                         ),
@@ -83,6 +93,32 @@ class CompanyApplicationsScreen extends ConsumerWidget {
         },
       ),
     );
+  }
+}
+
+Future<void> _messageApplicant(
+  BuildContext context,
+  WidgetRef ref,
+  JobApplication app,
+) async {
+  final company = ref.read(authNotifierProvider).value;
+  if (company == null || app.applicantId.isEmpty) {
+    ToastService.error(context, 'Cannot start chat with this applicant');
+    return;
+  }
+
+  try {
+    final chatId = await ref.read(chatServiceProvider).ensureChat(
+          userId: company.uid,
+          otherUserId: app.applicantId,
+          title: app.applicantName,
+        );
+    if (!context.mounted) return;
+    context.push(RouteConstants.companyChatPath(chatId));
+  } catch (_) {
+    if (context.mounted) {
+      ToastService.error(context, 'Could not open conversation');
+    }
   }
 }
 

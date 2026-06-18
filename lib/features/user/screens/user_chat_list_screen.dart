@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/route_constants.dart';
+import '../../../core/constants/l10n/locale_provider.dart';
 import '../../../core/widgets/async_error_view.dart';
 import '../../../core/widgets/rozgar_shell_body.dart';
 import '../provider/user_chat_provider.dart';
@@ -15,21 +16,22 @@ class UserChatListScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final chatsAsync = ref.watch(userChatsProvider);
+    final s = ref.watch(stringsProvider);
 
     return RozgarShellBody(
       child: chatsAsync.when(
-        loading: () => const Center(child: Text('Loading messages...')),
+        loading: () => Center(child: Text(s.loading)),
         error: (e, _) => AsyncErrorView(
-          message: 'Unable to load conversations',
+          message: s.unableLoadChats,
           onRetry: () => ref.invalidate(userChatsProvider),
         ),
         data: (chats) {
           if (chats.isEmpty) {
-            return const Center(
+            return Center(
               child: Padding(
-                padding: EdgeInsets.all(24),
+                padding: const EdgeInsets.all(24),
                 child: Text(
-                  'No conversations yet.\nMessage a recruiter from a job detail page.',
+                  s.noConversations,
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -62,10 +64,8 @@ class UserChatListScreen extends ConsumerWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        onTap: () => context.push(
-                          RouteConstants.userChat
-                              .replaceAll(':chatId', chat.id),
-                        ),
+                        onTap: () =>
+                            context.push(RouteConstants.userChatPath(chat.id)),
                       ),
                     ),
                   ),

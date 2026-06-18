@@ -7,6 +7,7 @@ import '../../../core/services/cloudinary_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../core/utils/extensions.dart';
 import '../../../core/widgets/profile_avatar_picker.dart';
+import '../../../core/widgets/profile_page_layout.dart';
 import '../../auth/provider/auth_provider.dart';
 import '../constants/user_constants.dart';
 import '../model/user_profile.dart';
@@ -163,6 +164,38 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
     );
   }
 
+  List<Widget> _editActions(UserProfile profile) {
+    if (!_isEditing) {
+      return [
+        FilledButton.icon(
+          onPressed: () {
+            _syncControllers(profile);
+            setState(() => _isEditing = true);
+          },
+          icon: const Icon(Icons.edit_outlined, size: 18),
+          label: const Text('Edit'),
+        ),
+      ];
+    }
+    return [
+      TextButton(
+        onPressed: () => setState(() => _isEditing = false),
+        child: const Text('Cancel'),
+      ),
+      const SizedBox(width: 4),
+      FilledButton(
+        onPressed: _saving ? null : _saveProfile,
+        child: _saving
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Text('Save'),
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authNotifierProvider).value;
@@ -185,260 +218,20 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
               photoUrl: user.photoUrl,
             );
 
-        return SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 80, 16, 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'My Profile',
-                      style: context.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  if (!_isEditing)
-                    FilledButton.icon(
-                      onPressed: () {
-                        _syncControllers(profile);
-                        setState(() => _isEditing = true);
-                      },
-                      icon: const Icon(Icons.edit_outlined, size: 18),
-                      label: const Text('Edit'),
-                    )
-                  else ...[
-                    TextButton(
-                      onPressed: () => setState(() => _isEditing = false),
-                      child: const Text('Cancel'),
-                    ),
-                    FilledButton(
-                      onPressed: _saving ? null : _saveProfile,
-                      child: _saving
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Save'),
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 16),
-              _ProfileHeader(
-                profile: profile,
-                isEditing: _isEditing,
-                onPhotoUploaded: (url) async {
-                  await ref.read(userProfileRepositoryProvider).saveProfile(
-                        uid: user.uid,
-                        photoUrl: url,
-                      );
-                  ref.invalidate(userProfileProvider);
-                },
-              ),
-              const SizedBox(height: 24),
-              _sectionTitle(context, 'About'),
-              _isEditing
-                  ? TextFormField(
-                      controller: _headlineController,
-                      decoration: const InputDecoration(
-                        hintText: 'Professional headline',
-                        prefixIcon: Icon(Icons.info_outline),
-                      ),
-                    )
-                  : Text(profile.headline ?? 'No headline yet'),
-              const SizedBox(height: 24),
-              _sectionTitle(context, UserConstants.salaryLabel),
-              _isEditing
-                  ? TextFormField(
-                      controller: _salaryController,
-                      decoration: const InputDecoration(
-                        hintText: 'Expected compensation (encrypted)',
-                        prefixIcon: Icon(Icons.payments_outlined),
-                        helperText: 'AES-256 CTR encrypted before Firestore write',
-                      ),
-                    )
-                  : Text(
-                      profile.salary?.isNotEmpty == true
-                          ? profile.salary!
-                          : 'Not specified',
-                    ),
-              const SizedBox(height: 24),
-              _sectionTitle(context, 'Skills'),
-              _isEditing
-                  ? TextFormField(
-                      controller: _skillsController,
-                      decoration: const InputDecoration(
-                        hintText: 'Flutter, Firebase, Dart (comma separated)',
-                        prefixIcon: Icon(Icons.star_outline),
-                      ),
-                    )
-                  : profile.skills.isEmpty
-                      ? const Text('No skills added yet')
-                      : Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: profile.skills
-                              .map((s) => Chip(label: Text(s)))
-                              .toList(),
-                        ),
-              const SizedBox(height: 24),
-              _sectionTitle(context, 'Education'),
-              _isEditing
-                  ? Column(
-                      children: [
-                        TextFormField(
-                          controller: _eduInstitutionController,
-                          decoration: const InputDecoration(
-                            labelText: 'Institution',
-                            prefixIcon: Icon(Icons.school_outlined),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _eduDegreeController,
-                          decoration: const InputDecoration(
-                            labelText: 'Degree',
-                            prefixIcon: Icon(Icons.menu_book_outlined),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _eduYearController,
-                          decoration: const InputDecoration(
-                            labelText: 'Year',
-                            prefixIcon: Icon(Icons.calendar_today_outlined),
-                          ),
-                        ),
-                      ],
-                    )
-                  : profile.education.isEmpty
-                      ? const Text('No education entries yet')
-                      : Column(
-                          children: profile.education
-                              .map(
-                                (e) => _TimelineTile(
-                                  title: e.degree,
-                                  subtitle: '${e.institution} · ${e.year}',
-                                  icon: Icons.school_outlined,
-                                ),
-                              )
-                              .toList(),
-                        ),
-              const SizedBox(height: 24),
-              _sectionTitle(context, 'Experience'),
-              _isEditing
-                  ? Column(
-                      children: [
-                        TextFormField(
-                          controller: _expCompanyController,
-                          decoration: const InputDecoration(
-                            labelText: 'Company',
-                            prefixIcon: Icon(Icons.business_outlined),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _expRoleController,
-                          decoration: const InputDecoration(
-                            labelText: 'Role',
-                            prefixIcon: Icon(Icons.work_outline),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _expDurationController,
-                          decoration: const InputDecoration(
-                            labelText: 'Duration',
-                            prefixIcon: Icon(Icons.date_range_outlined),
-                          ),
-                        ),
-                      ],
-                    )
-                  : profile.experience.isEmpty
-                      ? const Text('No experience entries yet')
-                      : Column(
-                          children: profile.experience
-                              .map(
-                                (e) => _TimelineTile(
-                                  title: e.role,
-                                  subtitle: '${e.company} · ${e.duration}',
-                                  icon: Icons.work_outline,
-                                ),
-                              )
-                              .toList(),
-                        ),
-              if (profile.cvUrl != null) ...[
-                const SizedBox(height: 16),
-                ListTile(
-                  leading: const Icon(Icons.description_outlined),
-                  title: const Text('Resume on file'),
-                  subtitle: Text(
-                    profile.cvUrl!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ],
-              if (_isEditing) ...[
-                const SizedBox(height: 24),
-                ElevatedButton.icon(
-                  onPressed: _uploading ? null : _uploadCv,
-                  icon: _uploading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.upload_file),
-                  label: Text(UserConstants.cvUploadLabel),
-                ),
-              ],
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _sectionTitle(BuildContext context, String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        title,
-        style: context.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-      ),
-    );
-  }
-}
-
-class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({
-    required this.profile,
-    required this.isEditing,
-    required this.onPhotoUploaded,
-  });
-
-  final UserProfile profile;
-  final bool isEditing;
-  final Future<void> Function(String url) onPhotoUploaded;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Row(
-          children: [
-            isEditing
+        return ProfilePageLayout(
+          title: 'My Profile',
+          actions: _editActions(profile),
+          header: ProfileHeroCard(
+            avatar: _isEditing
                 ? ProfileAvatarPicker(
                     photoUrl: profile.photoUrl,
                     displayName: profile.displayName,
-                    onUploaded: onPhotoUploaded,
+                    onUploaded: (url) async {
+                      await ref
+                          .read(userProfileRepositoryProvider)
+                          .saveProfile(uid: user.uid, photoUrl: url);
+                      ref.invalidate(userProfileProvider);
+                    },
                   )
                 : CircleAvatar(
                     radius: 48,
@@ -457,26 +250,205 @@ class _ProfileHeader extends StatelessWidget {
                           )
                         : null,
                   ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    profile.displayName,
-                    style: context.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(profile.email),
-                  if (profile.phone != null)
-                    Text('📱 ${profile.phone}', style: context.textTheme.bodySmall),
-                ],
+            name: profile.displayName,
+            subtitle: profile.email,
+            badge: profile.phone != null
+                ? Chip(
+                    avatar: const Icon(Icons.phone, size: 16),
+                    label: Text(profile.phone!),
+                    visualDensity: VisualDensity.compact,
+                  )
+                : null,
+          ),
+          body: Column(
+            children: [
+              ProfileSectionCard(
+                title: 'About',
+                icon: Icons.info_outline,
+                child: _isEditing
+                    ? TextFormField(
+                        controller: _headlineController,
+                        decoration: const InputDecoration(
+                          hintText: 'Professional headline',
+                          border: OutlineInputBorder(),
+                        ),
+                      )
+                    : Text(profile.headline ?? 'No headline yet'),
               ),
-            ),
-          ],
-        ),
-      ),
+              const SizedBox(height: 12),
+              ProfileSectionCard(
+                title: UserConstants.salaryLabel,
+                icon: Icons.payments_outlined,
+                child: _isEditing
+                    ? TextFormField(
+                        controller: _salaryController,
+                        decoration: const InputDecoration(
+                          hintText: 'Expected compensation (encrypted)',
+                          helperText:
+                              'AES-256 CTR encrypted before Firestore write',
+                          border: OutlineInputBorder(),
+                        ),
+                      )
+                    : Text(
+                        profile.salary?.isNotEmpty == true
+                            ? profile.salary!
+                            : 'Not specified',
+                      ),
+              ),
+              const SizedBox(height: 12),
+              ProfileSectionCard(
+                title: 'Skills',
+                icon: Icons.star_outline,
+                child: _isEditing
+                    ? TextFormField(
+                        controller: _skillsController,
+                        decoration: const InputDecoration(
+                          hintText: 'Flutter, Firebase, Dart (comma separated)',
+                          border: OutlineInputBorder(),
+                        ),
+                      )
+                    : profile.skills.isEmpty
+                        ? const Text('No skills added yet')
+                        : Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: profile.skills
+                                .map(
+                                  (s) => Chip(
+                                    label: Text(s),
+                                    backgroundColor:
+                                        context.colorScheme.primaryContainer,
+                                  ),
+                                )
+                                .toList(),
+                          ),
+              ),
+              const SizedBox(height: 12),
+              ProfileSectionCard(
+                title: 'Education',
+                icon: Icons.school_outlined,
+                child: _isEditing
+                    ? Column(
+                        children: [
+                          TextFormField(
+                            controller: _eduInstitutionController,
+                            decoration: const InputDecoration(
+                              labelText: 'Institution',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _eduDegreeController,
+                            decoration: const InputDecoration(
+                              labelText: 'Degree',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _eduYearController,
+                            decoration: const InputDecoration(
+                              labelText: 'Year',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ],
+                      )
+                    : profile.education.isEmpty
+                        ? const Text('No education entries yet')
+                        : Column(
+                            children: profile.education
+                                .map(
+                                  (e) => _TimelineTile(
+                                    title: e.degree,
+                                    subtitle: '${e.institution} · ${e.year}',
+                                    icon: Icons.school_outlined,
+                                  ),
+                                )
+                                .toList(),
+                          ),
+              ),
+              const SizedBox(height: 12),
+              ProfileSectionCard(
+                title: 'Experience',
+                icon: Icons.work_outline,
+                child: _isEditing
+                    ? Column(
+                        children: [
+                          TextFormField(
+                            controller: _expCompanyController,
+                            decoration: const InputDecoration(
+                              labelText: 'Company',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _expRoleController,
+                            decoration: const InputDecoration(
+                              labelText: 'Role',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _expDurationController,
+                            decoration: const InputDecoration(
+                              labelText: 'Duration',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ],
+                      )
+                    : profile.experience.isEmpty
+                        ? const Text('No experience entries yet')
+                        : Column(
+                            children: profile.experience
+                                .map(
+                                  (e) => _TimelineTile(
+                                    title: e.role,
+                                    subtitle: '${e.company} · ${e.duration}',
+                                    icon: Icons.work_outline,
+                                  ),
+                                )
+                                .toList(),
+                          ),
+              ),
+              if (profile.cvUrl != null) ...[
+                const SizedBox(height: 12),
+                ProfileSectionCard(
+                  title: 'Resume',
+                  icon: Icons.description_outlined,
+                  child: Text(
+                    profile.cvUrl!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.textTheme.bodySmall,
+                  ),
+                ),
+              ],
+              if (_isEditing) ...[
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _uploading ? null : _uploadCv,
+                    icon: _uploading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.upload_file),
+                    label: Text(UserConstants.cvUploadLabel),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 }

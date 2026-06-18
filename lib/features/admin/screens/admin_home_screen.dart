@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/route_constants.dart';
-import '../../../core/providers/theme_provider.dart';
+import '../../../core/constants/l10n/locale_provider.dart';
 import '../../../core/widgets/animated_switcher_widget.dart';
 import '../../../core/widgets/banner_ad_widget.dart';
 import '../../../core/widgets/glassmorphic_app_bar.dart';
+import '../../../core/widgets/home_app_bar_actions.dart';
 import '../../../core/widgets/rozgar_drawer.dart';
 import '../../auth/provider/auth_provider.dart';
-import '../constants/admin_constants.dart';
 import 'admin_analytics_screen.dart';
 import 'admin_diagnostics_screen.dart';
 import 'admin_jobs_screen.dart';
@@ -29,6 +29,7 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authNotifierProvider).value;
+    final s = ref.watch(stringsProvider);
 
     final pages = [
       const AdminAnalyticsScreen(),
@@ -38,12 +39,12 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
       const AdminProfileScreen(),
     ];
 
-    const titles = [
-      AdminConstants.dashboardTitle,
-      AdminConstants.usersTab,
-      AdminConstants.jobsTab,
-      'System',
-      'Profile',
+    final titles = [
+      s.analytics,
+      s.users,
+      s.allJobs,
+      s.system,
+      s.profile,
     ];
 
     return Scaffold(
@@ -51,30 +52,30 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
       extendBodyBehindAppBar: true,
       drawer: RozgarDrawer(
         currentRoute: RouteConstants.adminHome,
-        items: const [
+        items: [
           DrawerNavItem(
             route: RouteConstants.adminHome,
-            label: AdminConstants.analyticsTab,
+            label: s.analytics,
             icon: Icons.analytics_outlined,
           ),
           DrawerNavItem(
             route: RouteConstants.adminUsers,
-            label: AdminConstants.usersTab,
+            label: s.users,
             icon: Icons.people_outline,
           ),
           DrawerNavItem(
             route: RouteConstants.adminJobs,
-            label: AdminConstants.jobsTab,
+            label: s.allJobs,
             icon: Icons.work_outline,
           ),
           DrawerNavItem(
             route: RouteConstants.adminAnalytics,
-            label: 'System Diagnostics',
+            label: s.systemDiagnostics,
             icon: Icons.health_and_safety_outlined,
           ),
           DrawerNavItem(
             route: RouteConstants.adminProfile,
-            label: 'Admin Profile',
+            label: s.adminProfile,
             icon: Icons.admin_panel_settings_outlined,
           ),
         ],
@@ -93,20 +94,7 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
         title: titles[_currentIndex],
         displayName: user?.displayName ?? 'Admin',
         onAvatarTap: () => _scaffoldKey.currentState?.openDrawer(),
-        actions: [
-          IconButton(
-            icon: Icon(
-              Theme.of(context).brightness == Brightness.dark
-                  ? Icons.light_mode_outlined
-                  : Icons.dark_mode_outlined,
-            ),
-            onPressed: () {
-              final current = ref.read(themeModeProvider);
-              ref.read(themeModeProvider.notifier).state =
-                  current == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
-            },
-          ),
-        ],
+        actions: homeAppBarActions(context, ref),
       ),
       body: AnimatedSwitcherWidget(child: pages[_currentIndex]),
       bottomNavigationBar: Column(
@@ -116,31 +104,31 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
           NavigationBar(
             selectedIndex: _currentIndex,
             onDestinationSelected: (i) => setState(() => _currentIndex = i),
-            destinations: const [
+            destinations: [
               NavigationDestination(
-                icon: Icon(Icons.analytics_outlined),
-                selectedIcon: Icon(Icons.analytics),
-                label: AdminConstants.analyticsTab,
+                icon: const Icon(Icons.analytics_outlined),
+                selectedIcon: const Icon(Icons.analytics),
+                label: s.analytics,
               ),
               NavigationDestination(
-                icon: Icon(Icons.people_outline),
-                selectedIcon: Icon(Icons.people),
-                label: AdminConstants.usersTab,
+                icon: const Icon(Icons.people_outline),
+                selectedIcon: const Icon(Icons.people),
+                label: s.users,
               ),
               NavigationDestination(
-                icon: Icon(Icons.work_outline),
-                selectedIcon: Icon(Icons.work),
-                label: AdminConstants.jobsTab,
+                icon: const Icon(Icons.work_outline),
+                selectedIcon: const Icon(Icons.work),
+                label: s.allJobs,
               ),
               NavigationDestination(
-                icon: Icon(Icons.health_and_safety_outlined),
-                selectedIcon: Icon(Icons.health_and_safety),
-                label: 'System',
+                icon: const Icon(Icons.health_and_safety_outlined),
+                selectedIcon: const Icon(Icons.health_and_safety),
+                label: s.system,
               ),
               NavigationDestination(
-                icon: Icon(Icons.admin_panel_settings_outlined),
-                selectedIcon: Icon(Icons.admin_panel_settings),
-                label: 'Profile',
+                icon: const Icon(Icons.admin_panel_settings_outlined),
+                selectedIcon: const Icon(Icons.admin_panel_settings),
+                label: s.profile,
               ),
             ],
           ),

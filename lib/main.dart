@@ -76,6 +76,11 @@ class _RozgarBootstrapState extends ConsumerState<RozgarBootstrap> {
         await _safeInit('Ads', () => ref.read(adsServiceProvider).initialize());
       }
 
+      await _safeInit(
+        'CS job seed',
+        () => ref.read(jobSeedServiceProvider).seedIfNeeded(),
+      );
+
       AppLogger.info('Rozgar framework initialized successfully');
     } catch (e, st) {
       AppLogger.severe('Framework initialization failed', e, st);

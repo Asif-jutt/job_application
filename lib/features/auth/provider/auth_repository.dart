@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../../core/models/user_role.dart';
 import '../../../core/security/aes_encryption_service.dart';
+import '../../../core/services/authentication_service.dart';
 import '../../../core/services/firebase_auth_service.dart';
 import '../../../core/services/firestore_service.dart';
 import '../../../core/services/performance_service.dart';
@@ -10,24 +11,81 @@ import '../../../core/utils/app_logger.dart';
 import '../../../core/utils/result.dart';
 import '../constants/auth_constants.dart';
 import '../model/app_user.dart';
+import '../utils/phone_normalizer.dart';
 
 class AuthRepository {
   AuthRepository({
     required FirebaseAuthService authService,
+    required AuthenticationService authenticationService,
     required FirestoreService firestore,
     required AesEncryptionService encryption,
     PerformanceService? performance,
   })  : _authService = authService,
+        _authenticationService = authenticationService,
         _firestore = firestore,
         _encryption = encryption,
         _performance = performance ?? PerformanceService();
 
   final FirebaseAuthService _authService;
+  final AuthenticationService _authenticationService;
   final FirestoreService _firestore;
   final AesEncryptionService _encryption;
   final PerformanceService _performance;
 
   Stream<User?> get authStateChanges => _authService.authStateChanges;
+
+  AuthenticationService get authentication => _authenticationService;
+
+  Future<Result<AppUser>> signInWithGoogle() =>
+      _authenticationService.signInWithGoogle();
+
+  Future<Result<AppUser>> signInWithPhone({
+    required String phoneNumber,
+    required String password,
+  }) async {
+    return _performance.trace('auth_phone_sign_in', () async {
+      final normalized = PhoneNormalizer.normalize(phoneNumber);
+      if (normalized == null) {
+        return const Failure(
+          'Enter a valid mobile number with country code (e.g. +923001234567)',
+        );
+      }
+
+      final phoneKey = PhoneNormalizer.docId(normalized);
+      final indexDoc = await _firestore.getPhoneIndex(phoneKey);
+      if (!indexDoc.exists) {
+        AppLogger.auth('Phone sign-in failed: no account for $normalized');
+        return const Failure(
+          'No account found with this phone number. Please register first.',
+        );
+      }
+
+      final email = indexDoc.data()?['email'] as String?;
+      if (email == null || email.isEmpty) {
+        return const Failure(
+          'No account found with this phone number. Please register first.',
+        );
+      }
+
+      AppLogger.auth('Phone matched — signing in with linked email');
+      return signIn(email: email, password: password);
+    });
+  }
+
+  Future<Result<AppUser>> completeGoogleRoleSelection(UserRole role) =>
+      _authenticationService.completeGoogleRoleSelection(role);
+
+  Future<Result<void>> sendPhoneOtp(String phoneNumber) =>
+      _authenticationService.sendPhoneOtp(phoneNumber);
+
+  Future<Result<AppUser>> verifyPhoneOtp({
+    required String smsCode,
+    required String phoneNumber,
+  }) =>
+      _authenticationService.verifyPhoneOtp(
+        smsCode: smsCode,
+        phoneNumber: phoneNumber,
+      );
 
   Future<Result<AppUser>> signIn({
     required String email,
@@ -64,6 +122,22 @@ class AuthRepository {
   }) async {
     UserCredential? credential;
     try {
+      final normalizedPhone =
+          phone != null ? PhoneNormalizer.normalize(phone) : null;
+      if (normalizedPhone == null) {
+        return const Failure(
+          'A valid phone number is required. Use country code, e.g. +923001234567',
+        );
+      }
+
+      final phoneKey = PhoneNormalizer.docId(normalizedPhone);
+      final existingPhone = await _firestore.getPhoneIndex(phoneKey);
+      if (existingPhone.exists) {
+        return const Failure(
+          'This phone number is already registered. Sign in with phone instead.',
+        );
+      }
+
       credential = await _authService.registerWithEmail(
         email: email.trim(),
         password: password,
@@ -76,10 +150,15 @@ class AuthRepository {
         email: email.trim(),
         displayName: displayName,
         role: role,
-        phone: phone,
+        phone: normalizedPhone,
       );
 
       await _writeUserProfile(uid, userData);
+      await _firestore.setPhoneIndex(phoneKey, {
+        'uid': uid,
+        'email': email.trim(),
+        'phone': normalizedPhone,
+      });
 
       AppLogger.info('User registered and saved to Firestore: $uid');
 
@@ -88,7 +167,7 @@ class AuthRepository {
         email: email.trim(),
         role: role,
         displayName: displayName,
-        phone: phone,
+        phone: normalizedPhone,
         createdAt: DateTime.now(),
       ));
     } on FirebaseAuthException catch (e) {
@@ -115,11 +194,16 @@ class AuthRepository {
       'email': email,
       'role': role.value,
       'displayName': displayName,
+      'authProvider': 'email',
+      'authenticationProvider': 'email',
+      'phoneVerified': true,
       'createdAt': FieldValue.serverTimestamp(),
     };
 
     if (phone != null && phone.isNotEmpty) {
       userData['phone'] = phone;
+      userData['mobileNumber'] = phone;
+      userData['phoneLookup'] = PhoneNormalizer.docId(phone);
       userData = _encryption.encryptFields(
         userData,
         AuthConstants.sensitiveUserFields,
@@ -156,10 +240,31 @@ class AuthRepository {
     final doc = await _firestore.getUser(uid);
 
     if (!doc.exists) {
-      AppLogger.warning('Profile missing for $uid — creating from Auth record');
       final fbUser = _authService.currentUser;
       if (fbUser == null) throw Exception('User profile not found');
 
+      final isGoogleUser = fbUser.providerData
+          .any((provider) => provider.providerId == 'google.com');
+      final isPhoneUser = fbUser.providerData
+          .any((provider) => provider.providerId == 'phone');
+      if (isGoogleUser || isPhoneUser) {
+        AppLogger.auth(
+          '${isPhoneUser ? 'Phone' : 'Google'} user without Firestore profile — role selection required',
+        );
+        return AppUser(
+          uid: uid,
+          email: fbUser.email ?? '',
+          role: UserRole.user,
+          displayName: fbUser.displayName ?? fbUser.phoneNumber,
+          photoUrl: fbUser.photoURL,
+          phone: fbUser.phoneNumber,
+          authProvider: isPhoneUser ? 'phone' : 'google',
+          phoneVerified: true,
+          needsRoleSelection: true,
+        );
+      }
+
+      AppLogger.warning('Profile missing for $uid — creating from Auth record');
       final userData = _buildUserData(
         email: fbUser.email ?? '',
         displayName: fbUser.displayName ?? 'User',
@@ -194,9 +299,15 @@ class AuthRepository {
       email: data['email'] as String? ?? '',
       role: UserRole.fromString(data['role'] as String?),
       displayName: data['displayName'] as String?,
-      phone: data['phone'] as String?,
-      photoUrl: data['photoUrl'] as String?,
+      phone: data['phone'] as String? ?? data['mobileNumber'] as String?,
+      photoUrl: data['photoUrl'] as String? ?? data['profileImage'] as String?,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+      authProvider: data['authProvider'] as String? ??
+          data['authenticationProvider'] as String? ??
+          'email',
+      phoneVerified: data['phoneVerified'] as bool? ??
+          ((data['authProvider'] as String? ?? 'email') != 'google'),
+      needsRoleSelection: false,
     );
   }
 
@@ -214,7 +325,7 @@ class AuthRepository {
     }
   }
 
-  Future<void> signOut() => _authService.signOut();
+  Future<void> signOut() => _authenticationService.signOut();
 
   Future<void> _rollbackAuthUser(User? user) async {
     try {

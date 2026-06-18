@@ -1,6 +1,7 @@
 {
   "project_info": {
     "project_number": "533986648017",
+    "firebase_url": "https://jobportal-b7092-default-rtdb.firebaseio.com",
     "project_id": "jobportal-b7092",
     "storage_bucket": "jobportal-b7092.firebasestorage.app"
   },
@@ -12,7 +13,20 @@
           "package_name": "com.example.job_application"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "533986648017-pu7a0kphnrkui7q87qkanohnk8adh6rt.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.job_application",
+            "certificate_hash": "7ec2bfefd37472319fc67b953edbd8d4667b0530"
+          }
+        },
+        {
+          "client_id": "533986648017-fhbrqua49f9jk50ik0m52panu4o4j27n.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDdoXo1bRC1orprJ-_E04eMw2Mvzgxoy9s"
@@ -20,7 +34,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "533986648017-fhbrqua49f9jk50ik0m52panu4o4j27n.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "533986648017-4r9ce0rp49cf4qiuq9knlphga70av8ej.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.jobApplication"
+              }
+            }
+          ]
         }
       }
     }

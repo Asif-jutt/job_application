@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/constants/l10n/locale_provider.dart';
 import '../../../core/utils/extensions.dart';
 
 class SplashScreen extends ConsumerWidget {
@@ -9,6 +10,7 @@ class SplashScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(stringsProvider);
     return Scaffold(
       body: Center(
         child: Column(
@@ -28,6 +30,13 @@ class SplashScreen extends ConsumerWidget {
               style: context.textTheme.headlineLarge?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: context.colorScheme.primary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              s.appTagline,
+              style: context.textTheme.bodyMedium?.copyWith(
+                color: Colors.grey.shade600,
               ),
             ),
             const SizedBox(height: 32),

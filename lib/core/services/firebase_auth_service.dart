@@ -57,6 +57,12 @@ class FirebaseAuthService {
 
   Future<void> signOut() => _auth.signOut();
 
+  Future<UserCredential> signInWithCredential(AuthCredential credential) async {
+    final result = await _auth.signInWithCredential(credential);
+    await waitForAuthReady();
+    return result;
+  }
+
   Future<void> sendPasswordReset(String email) =>
       _auth.sendPasswordResetEmail(email: email.trim());
 }

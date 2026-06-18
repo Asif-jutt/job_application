@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/l10n/locale_provider.dart';
 import '../../../core/utils/extensions.dart';
 import '../../../core/widgets/async_error_view.dart';
 import '../model/job_application.dart';
@@ -27,15 +28,25 @@ class ApplicationStatusTracker extends ConsumerWidget {
     ApplicationStatus.offered,
   ];
 
+  String _statusLabel(ApplicationStatus status, AppStrings s) =>
+      switch (status) {
+        ApplicationStatus.applied => s.statusApplied,
+        ApplicationStatus.underReview => s.statusUnderReview,
+        ApplicationStatus.interviewScheduled => s.statusInterview,
+        ApplicationStatus.offered => s.statusOffered,
+        ApplicationStatus.rejected => s.statusRejected,
+      };
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(stringsProvider);
     final statusAsync = ref.watch(applicationStatusStreamProvider(applicationId));
 
     return statusAsync.when(
       loading: () => _buildShimmer(context),
       error: (_, _) {
         if (fallbackStatus != null) {
-          return _buildTracker(context, fallbackStatus!);
+          return _buildTracker(context, fallbackStatus!, s);
         }
         if (compact) {
           return Row(
@@ -44,7 +55,7 @@ class ApplicationStatusTracker extends ConsumerWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  'Status unavailable',
+                  s.statusUnavailable,
                   style: context.textTheme.bodySmall,
                 ),
               ),
@@ -52,13 +63,13 @@ class ApplicationStatusTracker extends ConsumerWidget {
                 onPressed: () => ref.invalidate(
                   applicationStatusStreamProvider(applicationId),
                 ),
-                child: const Text('Retry'),
+                child: Text(s.retry),
               ),
             ],
           );
         }
         return AsyncErrorView(
-          message: 'Unable to load application status',
+          message: s.unableLoadStatus,
           icon: Icons.timeline_outlined,
           onRetry: () => ref.invalidate(
             applicationStatusStreamProvider(applicationId),
@@ -67,14 +78,14 @@ class ApplicationStatusTracker extends ConsumerWidget {
       },
       data: (current) {
         if (current == ApplicationStatus.rejected) {
-          return _RejectedBanner();
+          return _RejectedBanner(message: s.statusRejected);
         }
-        return _buildTracker(context, current);
+        return _buildTracker(context, current, s);
       },
     );
   }
 
-  Widget _buildTracker(BuildContext context, ApplicationStatus current) {
+  Widget _buildTracker(BuildContext context, ApplicationStatus current, AppStrings s) {
     final currentIndex = _pipeline.indexOf(current).clamp(0, _pipeline.length - 1);
 
     return Card(
@@ -86,7 +97,7 @@ class ApplicationStatusTracker extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Application Progress',
+              s.applicationProgress,
               style: context.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
@@ -118,7 +129,7 @@ class ApplicationStatusTracker extends ConsumerWidget {
                 final isCompleted = stepIndex < currentIndex;
 
                 return _StepNode(
-                  label: compact ? '' : status.label,
+                  label: compact ? '' : _statusLabel(status, s),
                   icon: _iconFor(status),
                   isActive: isActive,
                   isCompleted: isCompleted,
@@ -214,6 +225,9 @@ class _StepNode extends StatelessWidget {
 }
 
 class _RejectedBanner extends StatelessWidget {
+  const _RejectedBanner({required this.message});
+  final String message;
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -228,7 +242,7 @@ class _RejectedBanner extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Application was not selected at this time.',
+              message,
               style: TextStyle(color: context.colorScheme.onErrorContainer),
             ),
           ),

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/route_constants.dart';
-import '../../../core/providers/theme_provider.dart';
+import '../../../core/constants/l10n/locale_provider.dart';
 import '../../../core/widgets/animated_switcher_widget.dart';
 import '../../../core/widgets/banner_ad_widget.dart';
 import '../../../core/widgets/glassmorphic_app_bar.dart';
+import '../../../core/widgets/home_app_bar_actions.dart';
 import '../../../core/widgets/rozgar_drawer.dart';
 import '../../../core/widgets/skippable_ad_overlay.dart';
 import '../../auth/provider/auth_provider.dart';
@@ -35,6 +36,8 @@ class _UserHomeScreenState extends ConsumerState<UserHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authNotifierProvider).value;
+    final s = ref.watch(stringsProvider);
+
     final pages = [
       const UserJobsScreen(),
       const UserApplicationsScreen(),
@@ -42,32 +45,32 @@ class _UserHomeScreenState extends ConsumerState<UserHomeScreen> {
       const UserProfileScreen(),
     ];
 
-    const titles = ['Discover Jobs', 'Applications', 'Messages', 'Profile'];
+    final titles = [s.discoverJobs, s.applications, s.messages, s.profile];
 
     return Scaffold(
       key: _scaffoldKey,
       extendBodyBehindAppBar: true,
       drawer: RozgarDrawer(
         currentRoute: RouteConstants.userHome,
-        items: const [
+        items: [
           DrawerNavItem(
             route: RouteConstants.userHome,
-            label: 'Jobs Feed',
+            label: s.jobsFeed,
             icon: Icons.work_outline,
           ),
           DrawerNavItem(
             route: '${RouteConstants.userHome}/applications',
-            label: 'My Applications',
+            label: s.myApplications,
             icon: Icons.assignment_outlined,
           ),
           DrawerNavItem(
             route: RouteConstants.userChats,
-            label: 'Messages',
+            label: s.messages,
             icon: Icons.chat_bubble_outline,
           ),
           DrawerNavItem(
             route: RouteConstants.userProfile,
-            label: 'Profile',
+            label: s.profile,
             icon: Icons.person_outline,
           ),
         ],
@@ -86,20 +89,7 @@ class _UserHomeScreenState extends ConsumerState<UserHomeScreen> {
         displayName: user?.displayName,
         notificationCount: 2,
         onAvatarTap: () => _scaffoldKey.currentState?.openDrawer(),
-        actions: [
-          IconButton(
-            icon: Icon(
-              Theme.of(context).brightness == Brightness.dark
-                  ? Icons.light_mode_outlined
-                  : Icons.dark_mode_outlined,
-            ),
-            onPressed: () {
-              final current = ref.read(themeModeProvider);
-              ref.read(themeModeProvider.notifier).state =
-                  current == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
-            },
-          ),
-        ],
+        actions: homeAppBarActions(context, ref),
       ),
       body: AnimatedSwitcherWidget(child: pages[_currentIndex]),
       bottomNavigationBar: Column(
@@ -109,26 +99,26 @@ class _UserHomeScreenState extends ConsumerState<UserHomeScreen> {
           NavigationBar(
             selectedIndex: _currentIndex,
             onDestinationSelected: (i) => setState(() => _currentIndex = i),
-            destinations: const [
+            destinations: [
               NavigationDestination(
-                icon: Icon(Icons.work_outline),
-                selectedIcon: Icon(Icons.work),
-                label: 'Jobs',
+                icon: const Icon(Icons.work_outline),
+                selectedIcon: const Icon(Icons.work),
+                label: s.jobs,
               ),
               NavigationDestination(
-                icon: Icon(Icons.assignment_outlined),
-                selectedIcon: Icon(Icons.assignment),
-                label: 'Applied',
+                icon: const Icon(Icons.assignment_outlined),
+                selectedIcon: const Icon(Icons.assignment),
+                label: s.applied,
               ),
               NavigationDestination(
-                icon: Icon(Icons.chat_bubble_outline),
-                selectedIcon: Icon(Icons.chat_bubble),
-                label: 'Messages',
+                icon: const Icon(Icons.chat_bubble_outline),
+                selectedIcon: const Icon(Icons.chat_bubble),
+                label: s.messages,
               ),
               NavigationDestination(
-                icon: Icon(Icons.person_outline),
-                selectedIcon: Icon(Icons.person),
-                label: 'Profile',
+                icon: const Icon(Icons.person_outline),
+                selectedIcon: const Icon(Icons.person),
+                label: s.profile,
               ),
             ],
           ),

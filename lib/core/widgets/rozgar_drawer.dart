@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/provider/auth_provider.dart';
 import '../constants/app_constants.dart';
+import '../constants/l10n/locale_provider.dart';
 import '../models/user_role.dart';
 import '../utils/extensions.dart';
+import 'language_selector.dart';
 
 class RozgarDrawer extends ConsumerStatefulWidget {
   const RozgarDrawer({
@@ -27,6 +29,12 @@ class _RozgarDrawerState extends ConsumerState<RozgarDrawer> {
   Widget build(BuildContext context) {
     final user = ref.watch(authNotifierProvider).value;
     final role = user?.role ?? UserRole.user;
+    final strings = ref.watch(stringsProvider);
+    final roleLabel = switch (role) {
+      UserRole.user => strings.roleJobSeeker,
+      UserRole.company => strings.roleRecruiter,
+      UserRole.admin => strings.roleAdmin,
+    };
 
     return Drawer(
       child: Container(
@@ -62,7 +70,7 @@ class _RozgarDrawerState extends ConsumerState<RozgarDrawer> {
                       ),
                     ),
                     Text(
-                      role.label,
+                      roleLabel,
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.85),
                         fontSize: 13,
@@ -105,6 +113,11 @@ class _RozgarDrawerState extends ConsumerState<RozgarDrawer> {
                   ),
                 ),
               ),
+              ListTile(
+                leading: const Icon(Icons.language),
+                title: Text(strings.language),
+                onTap: () => LanguageSelectorButton.showSheet(context, ref),
+              ),
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: OutlinedButton.icon(
@@ -113,7 +126,7 @@ class _RozgarDrawerState extends ConsumerState<RozgarDrawer> {
                     ref.read(authNotifierProvider.notifier).signOut();
                   },
                   icon: const Icon(Icons.logout),
-                  label: const Text('Sign Out'),
+                  label: Text(strings.signOut),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: context.colorScheme.error,
                     side: BorderSide(color: context.colorScheme.error),

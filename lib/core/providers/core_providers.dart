@@ -5,13 +5,16 @@ import '../security/aes_encryption_service.dart';
 import '../security/secure_storage_service.dart';
 import '../services/ads_service.dart';
 import '../services/app_diagnostics_service.dart';
+import '../services/authentication_service.dart';
 import '../services/chat_service.dart';
 import '../services/cloudinary_service.dart';
 import '../services/fcm_service.dart';
 import '../services/firebase_auth_service.dart';
 import '../services/firestore_service.dart';
+import '../services/google_auth_service.dart';
 import '../services/isolate_service.dart';
 import '../services/job_repository.dart';
+import '../services/job_seed_service.dart';
 import '../services/local_notification_service.dart';
 import '../services/performance_service.dart';
 import '../services/permission_service.dart';
@@ -35,6 +38,22 @@ final firebaseAuthServiceProvider = Provider<FirebaseAuthService>(
   (ref) => FirebaseAuthService(),
 );
 
+final googleAuthServiceProvider = Provider<GoogleAuthService>((ref) {
+  return GoogleAuthService(
+    authService: ref.watch(firebaseAuthServiceProvider),
+  );
+});
+
+final authenticationServiceProvider = Provider<AuthenticationService>((ref) {
+  return AuthenticationService(
+    authService: ref.watch(firebaseAuthServiceProvider),
+    googleAuth: ref.watch(googleAuthServiceProvider),
+    firestore: ref.watch(firestoreServiceProvider),
+    encryption: ref.watch(aesEncryptionProvider),
+    performance: ref.watch(performanceServiceProvider),
+  );
+});
+
 final firestoreServiceProvider = Provider<FirestoreService>(
   (ref) => FirestoreService(),
 );
@@ -49,6 +68,10 @@ final jobRepositoryProvider = Provider<JobRepository>((ref) {
 
 final chatServiceProvider = Provider<ChatService>(
   (ref) => ChatService(ref.watch(firestoreServiceProvider)),
+);
+
+final jobSeedServiceProvider = Provider<JobSeedService>(
+  (ref) => JobSeedService(ref.watch(firestoreServiceProvider)),
 );
 
 final cloudinaryServiceProvider = Provider<CloudinaryService>(

@@ -4,7 +4,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/admin/screens/admin_home_screen.dart';
 import '../../features/auth/provider/auth_provider.dart';
+import '../../features/auth/screens/google_role_selection_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
+import '../../features/auth/screens/otp_verification_screen.dart';
+import '../../features/auth/screens/phone_verification_screen.dart';
 import '../../features/auth/screens/register_screen.dart';
 import '../../features/auth/screens/splash_screen.dart';
 import '../../features/company/screens/company_chat_screen.dart';
@@ -28,23 +31,31 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final isLoading = authState.isLoading;
       final user = authState.value;
-      final isAuthRoute = state.matchedLocation == RouteConstants.login ||
-          state.matchedLocation == RouteConstants.register;
-      final isSplash = state.matchedLocation == RouteConstants.splash;
+      final location = state.matchedLocation;
+      final isAuthRoute = location == RouteConstants.login ||
+          location == RouteConstants.register;
+      final isGoogleRoleRoute = location == RouteConstants.googleRole;
+      final isSplash = location == RouteConstants.splash;
 
       if (isLoading && isSplash) return null;
       if (isLoading) return RouteConstants.splash;
 
       if (user == null) {
         if (isSplash) return RouteConstants.login;
+        if (isGoogleRoleRoute) return RouteConstants.login;
         return isAuthRoute ? null : RouteConstants.login;
       }
 
-      if (isAuthRoute || isSplash) {
+      if (user.needsRoleSelection) {
+        if (isGoogleRoleRoute) return null;
+        return RouteConstants.googleRole;
+      }
+
+      if (isAuthRoute || isSplash || isGoogleRoleRoute) {
         return _homeForRole(user.role);
       }
 
-      return _guardRoute(state.matchedLocation, user.role);
+      return _guardRoute(location, user.role);
     },
     routes: [
       GoRoute(
@@ -58,6 +69,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RouteConstants.register,
         builder: (_, _) => const RegisterScreen(),
+      ),
+      GoRoute(
+        path: RouteConstants.googleRole,
+        builder: (_, _) => const GoogleRoleSelectionScreen(),
+      ),
+      GoRoute(
+        path: RouteConstants.phoneVerify,
+        builder: (_, _) => const PhoneVerificationScreen(),
+      ),
+      GoRoute(
+        path: RouteConstants.otpVerify,
+        builder: (_, _) => const OtpVerificationScreen(),
       ),
 
       // User routes
@@ -78,7 +101,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'chats/:chatId',
             builder: (_, state) => UserChatScreen(
-              chatId: state.pathParameters['chatId']!,
+              chatId: Uri.decodeComponent(state.pathParameters['chatId']!),
             ),
           ),
         ],
@@ -92,7 +115,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'chats/:chatId',
             builder: (_, state) => CompanyChatScreen(
-              chatId: state.pathParameters['chatId']!,
+              chatId: Uri.decodeComponent(state.pathParameters['chatId']!),
             ),
           ),
         ],

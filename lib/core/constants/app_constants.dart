@@ -5,6 +5,7 @@ class AppConstants {
   static const String appTagline = 'Your Career, Your Way';
 
   static const String usersCollection = 'users';
+  static const String phoneIndexCollection = 'phone_index';
   static const String jobsCollection = 'jobs';
   static const String chatsCollection = 'chats';
   static const String messagesSubcollection = 'messages';

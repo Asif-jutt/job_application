@@ -4,6 +4,9 @@ class RouteConstants {
   static const String splash = '/';
   static const String login = '/login';
   static const String register = '/register';
+  static const String googleRole = '/google-role';
+  static const String phoneVerify = '/phone-verify';
+  static const String otpVerify = '/otp-verify';
 
   // User (Job Seeker)
   static const String userHome = '/user';
@@ -13,6 +16,9 @@ class RouteConstants {
   static const String userChats = '/user/chats';
   static const String userChat = '/user/chats/:chatId';
 
+  static String userChatPath(String chatId) =>
+      '/user/chats/${Uri.encodeComponent(chatId)}';
+
   // Company (Recruiter)
   static const String companyHome = '/company';
   static const String companyPostJob = '/company/post-job';
@@ -20,6 +26,9 @@ class RouteConstants {
   static const String companyProfile = '/company/profile';
   static const String companyChats = '/company/chats';
   static const String companyChat = '/company/chats/:chatId';
+
+  static String companyChatPath(String chatId) =>
+      '/company/chats/${Uri.encodeComponent(chatId)}';
 
   // Admin
   static const String adminHome = '/admin';

@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/route_constants.dart';
 import '../../../core/models/job_model.dart';
 import '../../../core/providers/core_providers.dart';
+import '../../../core/services/job_seed_service.dart';
 import '../../../core/services/toast_service.dart';
 import '../../../core/utils/extensions.dart';
 import '../../auth/provider/auth_provider.dart';
@@ -186,17 +187,30 @@ class _UserJobDetailScreenState extends ConsumerState<UserJobDetailScreen> {
   Future<void> _messageRecruiter() async {
     final user = ref.read(authNotifierProvider).value;
     final job = _job;
-    if (user == null || job.companyId == null) {
-      ToastService.error(context, 'Cannot start chat for this job');
+    if (user == null) {
+      ToastService.error(context, 'Please sign in to message');
       return;
     }
+
+    var companyId = job.companyId;
+    if (companyId == null ||
+        companyId.isEmpty ||
+        companyId == JobSeedService.seedCompanyId) {
+      companyId = await ref.read(jobSeedServiceProvider).findCompanyRecruiterId();
+    }
+
+    if (companyId == null || companyId.isEmpty) {
+      ToastService.error(context, 'No recruiter account found for this job');
+      return;
+    }
+
     final chatId = await ref.read(chatServiceProvider).ensureChat(
           userId: user.uid,
-          otherUserId: job.companyId!,
+          otherUserId: companyId,
           title: job.company,
         );
     if (!mounted) return;
-    context.push(RouteConstants.userChat.replaceAll(':chatId', chatId));
+    context.push(RouteConstants.userChatPath(chatId));
   }
 
 

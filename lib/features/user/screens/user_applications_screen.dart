@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/constants/l10n/locale_provider.dart';
 import '../../../core/widgets/async_error_view.dart';
 import '../../../core/widgets/rozgar_shell_body.dart';
 import '../../../core/widgets/shimmer_skeleton.dart';
@@ -15,17 +16,18 @@ class UserApplicationsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final appsAsync = ref.watch(userApplicationsProvider);
+    final s = ref.watch(stringsProvider);
 
     return RozgarShellBody(
       child: appsAsync.when(
         loading: () => const JobListSkeleton(itemCount: 3),
         error: (e, _) => AsyncErrorView(
-          message: 'Unable to load your applications',
+          message: s.unableLoadApplications,
           onRetry: () => ref.invalidate(userApplicationsProvider),
         ),
         data: (apps) {
           if (apps.isEmpty) {
-            return const Center(child: Text('No applications yet'));
+            return Center(child: Text(s.noApplicationsYet));
           }
           return AnimationLimiter(
             child: ListView.builder(
